@@ -1,0 +1,41 @@
+# macOS and editor state
+.DS_Store
+**/.DS_Store
+*.xcuserstate
+xcuserdata/
+**/xcuserdata/
+
+# Swift Package Manager and build products
+.build/
+macos/.build/
+.swiftpm/
+DerivedData/
+macos/dist/
+*.app/
+
+# Local configuration, credentials, and environment files
+.env
+.env.*
+!.env.example
+config.json
+**/config.json
+credentials.json
+**/credentials.json
+service-account*.json
+**/service-account*.json
+*.pem
+*.key
+
+# Local FocusTracker data
+sessions.jsonl
+**/sessions.jsonl
+local-sessions.json
+**/local-sessions.json
+outbox.json
+**/outbox.json
+
+# Logs and temporary files
+*.log
+*.tmp
+*.swp
+*~
