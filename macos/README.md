@@ -23,6 +23,26 @@ A FocusTracker window opens and a compact transparent white version of the app's
 segmented-ring icon appears in the menu bar. Its foreground stays white so translucent
 menu bars cannot incorrectly tint it black, and it has no crosshair lines.
 
+## Test
+
+From the repository root:
+
+```sh
+swift test --package-path macos --parallel
+```
+
+The XCTest suite covers configuration decoding and defaults, structured and
+legacy session-description formats, duration and payload calculation, and timer
+state transitions. The real packaged executable also provides
+`--smoke-test` for headless CI launch verification; it validates bundle metadata
+and initializes the timer model without opening or modifying user data.
+
+`.github/workflows/ci-macos.yml` is intentionally macOS-specific. On pushes to
+`main` and macOS-related pull requests it tests, creates the universal app and
+DMG, runs that packaged smoke check, and verifies architectures, code signing,
+the disk image, and its checksum. Other native platforms should use separate
+workflow files so their SDKs and release rules remain independent.
+
 ## Install as a macOS app
 
 Users install the public release through the standard macOS disk-image flow:

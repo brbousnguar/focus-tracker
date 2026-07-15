@@ -12,6 +12,7 @@
 <p align="center">
   <img alt="macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-0A84FF?logo=apple">
   <img alt="Swift 5.9" src="https://img.shields.io/badge/Swift-5.9-F05138?logo=swift&logoColor=white">
+  <a href="https://github.com/brbousnguar/focus-tracker/actions/workflows/ci-macos.yml"><img alt="macOS CI" src="https://github.com/brbousnguar/focus-tracker/actions/workflows/ci-macos.yml/badge.svg"></a>
   <img alt="MIT License" src="https://img.shields.io/badge/license-MIT-34A853">
 </p>
 
@@ -191,15 +192,33 @@ The result is `macos/dist/FocusTracker.dmg`. Local packages are ad-hoc signed an
 are intended only for development. Maintainer releases use the automated signed
 and notarized workflow documented in [`macos/README.md`](macos/README.md).
 
+## Tests and continuous integration
+
+Run the macOS unit tests locally:
+
+```bash
+swift test --package-path macos --parallel
+```
+
+The tests cover legacy configuration compatibility, session description encoding,
+session duration and payload generation, and focus-timer state transitions.
+The dedicated [macOS CI workflow](.github/workflows/ci-macos.yml) runs on every
+push to `main` and on macOS-related pull requests. It runs the tests, builds the
+universal app and DMG, launches the packaged executable in headless smoke mode,
+and verifies its architectures, signature, disk image, and checksum. Future
+platform apps can add independent workflows such as `ci-ios.yml`,
+`ci-android.yml`, and `ci-windows.yml` without coupling their toolchains.
+
 ## Project structure
 
 ```text
 focus-tracker/
-├── .github/workflows/         # signed macOS release automation
+├── .github/workflows/         # platform CI and macOS release automation
 ├── docs/images/              # privacy-safe demo screenshots
 ├── macos/
 │   ├── Resources/            # app icon and asset catalog
 │   ├── Sources/FocusTracker/ # AppKit + SwiftUI application source
+│   ├── Tests/                 # macOS unit tests
 │   └── Package.swift
 ├── scripts/                   # reproducible packaging tools
 ├── schema.sql                # optional Supabase schema and RLS policies

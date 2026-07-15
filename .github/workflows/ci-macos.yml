@@ -1,0 +1,47 @@
+name: macOS CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    paths:
+      - ".github/workflows/ci-macos.yml"
+      - "macos/**"
+      - "scripts/package-macos.sh"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-build-run:
+    name: Test, build, and run macOS app
+    runs-on: macos-15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Run unit tests
+        run: swift test --package-path macos --parallel
+
+      - name: Build universal app and DMG
+        env:
+          VERSION: 0.0.0-ci
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: ./scripts/package-macos.sh
+
+      - name: Run packaged app smoke test
+        run: macos/dist/FocusTracker.app/Contents/MacOS/FocusTracker --smoke-test
+
+      - name: Verify package
+        run: |
+          test "$(lipo -archs macos/dist/FocusTracker.app/Contents/MacOS/FocusTracker)" = "x86_64 arm64"
+          codesign --verify --deep --strict --verbose=2 macos/dist/FocusTracker.app
+          hdiutil verify macos/dist/FocusTracker.dmg
+          shasum -a 256 -c macos/dist/FocusTracker.dmg.sha256

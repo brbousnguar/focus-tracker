@@ -8,6 +8,11 @@ let package = Package(
         .executableTarget(
             name: "FocusTracker",
             path: "Sources/FocusTracker"
+        ),
+        .testTarget(
+            name: "FocusTrackerTests",
+            dependencies: ["FocusTracker"],
+            path: "Tests/FocusTrackerTests"
         )
     ]
 )
