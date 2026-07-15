@@ -15,6 +15,27 @@
   <img alt="MIT License" src="https://img.shields.io/badge/license-MIT-34A853">
 </p>
 
+<p align="center">
+  <a href="https://github.com/brbousnguar/focus-tracker/releases/latest/download/FocusTracker.dmg">
+    <img alt="Download FocusTracker for macOS" src="https://img.shields.io/badge/Download_for_macOS-FocusTracker.dmg-0A84FF?style=for-the-badge&logo=apple&logoColor=white">
+  </a>
+</p>
+
+## Install FocusTracker
+
+1. [Download the latest FocusTracker DMG](https://github.com/brbousnguar/focus-tracker/releases/latest/download/FocusTracker.dmg).
+2. Open `FocusTracker.dmg`.
+3. Drag **FocusTracker** onto the **Applications** folder shown in the window.
+4. Eject the disk image, then try to open FocusTracker from Applications.
+5. If macOS blocks the first launch, open **System Settings → Privacy & Security**,
+   scroll to Security, and choose **Open Anyway** for FocusTracker. Confirm once;
+   subsequent launches work normally.
+
+The free community release is a universal app for Apple silicon and Intel Macs.
+It is not signed or notarized by Apple, so Gatekeeper requires the one-time
+approval above. The source and a SHA-256 checksum are published with every
+release. A future Developer ID release can remove this extra approval step.
+
 ## See it in action
 
 ### Start a focused session
@@ -42,7 +63,7 @@ month-granularity charts.
 - Store sessions entirely on your Mac or use your own remote REST database.
 - Keep the app in the Dock and Command-Tab while retaining menu-bar controls.
 
-## Quick start
+## Run from source
 
 ### Requirements
 
@@ -160,15 +181,27 @@ The release executable is written to `macos/.build/release/FocusTracker`. For th
 packaged `.app` layout and icon compilation details, see
 [`macos/README.md`](macos/README.md).
 
+To build a universal development DMG locally:
+
+```bash
+VERSION=1.0.0 BUILD_NUMBER=1 ./scripts/package-macos.sh
+```
+
+The result is `macos/dist/FocusTracker.dmg`. Local packages are ad-hoc signed and
+are intended only for development. Maintainer releases use the automated signed
+and notarized workflow documented in [`macos/README.md`](macos/README.md).
+
 ## Project structure
 
 ```text
 focus-tracker/
+├── .github/workflows/         # signed macOS release automation
 ├── docs/images/              # privacy-safe demo screenshots
 ├── macos/
 │   ├── Resources/            # app icon and asset catalog
 │   ├── Sources/FocusTracker/ # AppKit + SwiftUI application source
 │   └── Package.swift
+├── scripts/                   # reproducible packaging tools
 ├── schema.sql                # optional Supabase schema and RLS policies
 └── LICENSE                   # permissive MIT license
 ```

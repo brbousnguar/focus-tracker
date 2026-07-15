@@ -25,17 +25,82 @@ menu bars cannot incorrectly tint it black, and it has no crosshair lines.
 
 ## Install as a macOS app
 
-The packaged `FocusTracker.app` runs independently of Terminal and remains in
-the menu bar after its launching shell closes:
+Users install the public release through the standard macOS disk-image flow:
+
+1. Download `FocusTracker.dmg` from the repository's latest release.
+2. Open the disk image.
+3. Drag FocusTracker onto the Applications alias.
+4. Try to open FocusTracker from Applications.
+5. For an unsigned community build, macOS blocks the first attempt. Open
+   **System Settings → Privacy & Security**, scroll to Security, select
+   **Open Anyway** for FocusTracker, and confirm. This is required only once.
+
+The packaged app runs independently of Terminal and remains in the menu bar
+after its launching shell closes. To create a universal development DMG:
 
 ```sh
-cp -R dist/FocusTracker.app ~/Applications/
-open ~/Applications/FocusTracker.app
+cd ..
+VERSION=1.0.0 BUILD_NUMBER=1 ./scripts/package-macos.sh
 ```
 
-Rebuild and copy `.build/release/FocusTracker` into
-`dist/FocusTracker.app/Contents/MacOS/FocusTracker` before reinstalling after
-code changes.
+This builds Apple silicon and Intel executables, combines them into one app,
+compiles the production icon, signs the bundle, and creates
+`macos/dist/FocusTracker.dmg` with an Applications alias. Without
+`MACOS_SIGNING_IDENTITY`, the script uses an ad-hoc development signature; do
+not describe that package as Apple-verified.
+
+## Publish a free community release
+
+No paid Apple membership is required. Push a semantic-version tag:
+
+```sh
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+If no Apple credentials are configured, `.github/workflows/release-macos.yml`
+publishes the universal ad-hoc signed DMG and its SHA-256 checksum as an unsigned
+community release. The release notes and installation instructions clearly
+explain the one-time Gatekeeper approval.
+
+## Optional: publish a trusted release
+
+Distribution outside the Mac App Store requires an Apple Developer Program
+membership, a **Developer ID Application** certificate, and Apple notarization.
+
+1. [Enroll in the Apple Developer Program](https://developer.apple.com/programs/enroll/)
+   and wait for Apple to approve the membership.
+2. On the Mac, open **Keychain Access → Certificate Assistant → Request a
+   Certificate from a Certificate Authority**. Enter the Apple Account email,
+   choose **Saved to disk**, and save the `.certSigningRequest` file.
+3. Open [Certificates, Identifiers & Profiles](https://developer.apple.com/account/resources/certificates/list),
+   add a certificate, select **Developer ID Application**, and upload the CSR.
+4. Download the `.cer` from Apple and double-click it. Under **Keychain Access →
+   login → My Certificates**, verify that the certificate expands to show its
+   private key.
+5. Export that certificate and private key as a password-protected `.p12`.
+
+Then add these GitHub repository secrets under **Settings → Secrets and
+variables → Actions**:
+
+- `MACOS_CERTIFICATE_BASE64` — base64-encoded contents of the exported `.p12`
+- `MACOS_CERTIFICATE_PASSWORD` — password used when exporting the `.p12`
+- `APPLE_ID` — Apple Account used for notarization
+- `APPLE_TEAM_ID` — ten-character Apple Developer team identifier
+- `APPLE_APP_SPECIFIC_PASSWORD` — app-specific password for the Apple Account
+
+Keep the certificate, its password, and notarization credentials out of Git.
+After configuring all five secrets, publish the next semantic-version tag:
+
+```sh
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+The same workflow detects the complete credentials, signs the universal app with
+the Developer ID certificate, notarizes and staples the DMG, verifies it with
+Gatekeeper, and creates a trusted GitHub Release. The README download button
+always points to the `FocusTracker.dmg` asset from the latest release.
 
 ## First-run config
 On first launch it creates:

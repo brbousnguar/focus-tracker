@@ -1,0 +1,120 @@
+name: Release macOS
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish DMG
+    runs-on: macos-15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Determine release signing mode
+        id: signing
+        env:
+          CERTIFICATE_BASE64: ${{ secrets.MACOS_CERTIFICATE_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        run: |
+          SIGNING_AVAILABLE=true
+          for variable in CERTIFICATE_BASE64 CERTIFICATE_PASSWORD APPLE_ID APPLE_TEAM_ID APPLE_APP_PASSWORD; do
+            if [[ -z "${!variable}" ]]; then
+              SIGNING_AVAILABLE=false
+            fi
+          done
+          echo "available=$SIGNING_AVAILABLE" >> "$GITHUB_OUTPUT"
+          if [[ "$SIGNING_AVAILABLE" == "true" ]]; then
+            echo "Developer ID credentials found; this release will be signed and notarized."
+          else
+            echo "Developer ID credentials are incomplete; publishing an unsigned community build."
+          fi
+
+      - name: Import Developer ID certificate
+        if: steps.signing.outputs.available == 'true'
+        env:
+          CERTIFICATE_BASE64: ${{ secrets.MACOS_CERTIFICATE_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        run: |
+          KEYCHAIN_PATH="$RUNNER_TEMP/focustracker-signing.keychain-db"
+          CERTIFICATE_PATH="$RUNNER_TEMP/developer-id.p12"
+          KEYCHAIN_PASSWORD="$(openssl rand -hex 24)"
+
+          echo "$CERTIFICATE_BASE64" | base64 --decode > "$CERTIFICATE_PATH"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERTIFICATE_PATH" \
+            -P "$CERTIFICATE_PASSWORD" \
+            -A \
+            -t cert \
+            -f pkcs12 \
+            -k "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH"
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign: \
+            -s \
+            -k "$KEYCHAIN_PASSWORD" \
+            "$KEYCHAIN_PATH"
+
+      - name: Build universal DMG
+        env:
+          VERSION: ${{ github.ref_name }}
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: |
+          VERSION="${VERSION#v}"
+          SIGNING_IDENTITY="-"
+          if [[ "${{ steps.signing.outputs.available }}" == "true" ]]; then
+            SIGNING_IDENTITY="$(security find-identity -v -p codesigning | sed -n 's/.*"\(Developer ID Application:[^"]*\)".*/\1/p' | head -1)"
+            if [[ -z "$SIGNING_IDENTITY" ]]; then
+              echo "Developer ID Application identity was not found" >&2
+              exit 1
+            fi
+          fi
+          VERSION="$VERSION" \
+          BUILD_NUMBER="$BUILD_NUMBER" \
+          MACOS_SIGNING_IDENTITY="$SIGNING_IDENTITY" \
+          ./scripts/package-macos.sh
+
+      - name: Notarize and staple
+        if: steps.signing.outputs.available == 'true'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        run: |
+          xcrun notarytool submit macos/dist/FocusTracker.dmg \
+            --apple-id "$APPLE_ID" \
+            --team-id "$APPLE_TEAM_ID" \
+            --password "$APPLE_APP_PASSWORD" \
+            --wait
+          xcrun stapler staple macos/dist/FocusTracker.dmg
+          xcrun stapler validate macos/dist/FocusTracker.dmg
+          spctl --assess --type open --context context:primary-signature --verbose=2 macos/dist/FocusTracker.dmg
+          shasum -a 256 macos/dist/FocusTracker.dmg > macos/dist/FocusTracker.dmg.sha256
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SIGNING_AVAILABLE: ${{ steps.signing.outputs.available }}
+        run: |
+          if [[ "$SIGNING_AVAILABLE" == "true" ]]; then
+            RELEASE_NOTES="Universal macOS release for Apple silicon and Intel Macs. This DMG is signed with Developer ID and notarized by Apple."
+          else
+            RELEASE_NOTES="Universal macOS community release for Apple silicon and Intel Macs. This free build is not signed or notarized by Apple, so macOS requires manual approval on first launch. Follow the installation instructions in the README."
+          fi
+          gh release create "$GITHUB_REF_NAME" \
+            macos/dist/FocusTracker.dmg \
+            macos/dist/FocusTracker.dmg.sha256 \
+            --title "FocusTracker $GITHUB_REF_NAME" \
+            --notes "$RELEASE_NOTES" \
+            --verify-tag
