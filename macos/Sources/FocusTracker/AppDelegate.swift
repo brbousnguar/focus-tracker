@@ -172,6 +172,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             menu.addItem(action("Restart", #selector(restartSession),
                                 symbol: "arrow.counterclockwise"))
+            menu.addItem(.separator())
+            menu.addItem(action(sessionDetailsMenuTitle(), #selector(editSessionDetails),
+                                symbol: "square.and.pencil"))
+            menu.addItem(.separator())
             menu.addItem(action("Stop & Save now", #selector(stopAndSave),
                                 symbol: "stop.circle"))
             menu.addItem(action("Cancel (discard)", #selector(cancelSession),
@@ -245,13 +249,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         focusTimer.cancel()
     }
 
+    /// Lets the user set session names and a note while the timer is still running,
+    /// so nothing has to be entered once it finishes.
+    @objc private func editSessionDetails() {
+        guard focusTimer.isActive else { return }
+        let details = promptSessionDetails(
+            category: focusTimer.category,
+            preselected: focusTimer.sessionNames,
+            initialNote: focusTimer.note,
+            title: "\(focusTimer.category) — session details"
+        )
+        focusTimer.sessionNames = details.sessions
+        focusTimer.note = details.note
+    }
+
+    private func sessionDetailsMenuTitle() -> String {
+        let hasDetails = !focusTimer.sessionNames.isEmpty
+            || !focusTimer.note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        return hasDetails ? "Edit sessions & note…" : "Add sessions & note…"
+    }
+
     private func saveTimerCompletion(_ completion: FocusTimerCompletion) {
         guard !completion.category.isEmpty else { return }
         if completion.reachedZero { NSSound.beep() }
 
         var sessionNames = completion.sessionNames
         var note = completion.note
-        if completion.collectDetailsAfterTimer {
+        let alreadyHasDetails = !sessionNames.isEmpty || !note.isEmpty
+        // Menu-started sessions collect details at the end only as a fallback —
+        // if the user already added them while the timer ran, save those directly.
+        if completion.collectDetailsAfterTimer && !alreadyHasDetails {
             let details = promptSessionDetails(category: completion.category)
             sessionNames = details.sessions
             note = details.note
@@ -270,14 +297,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Prompts
 
     /// Shows saved session names for the category plus an optional per-session note.
-    private func promptSessionDetails(category: String) -> (sessions: [String], note: String) {
+    /// Any `preselected` names are pre-checked (and added to the list if new), and
+    /// `initialNote` prefills the note field, so the dialog can edit existing details.
+    private func promptSessionDetails(category: String,
+                                      preselected: [String] = [],
+                                      initialNote: String = "",
+                                      title: String? = nil) -> (sessions: [String], note: String) {
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
-        alert.messageText = "\(category) session done"
+        alert.messageText = title ?? "\(category) session done"
         alert.informativeText = "Choose what you worked on, then add an optional note for extra detail."
         alert.addButton(withTitle: "Save")
 
-        let options = suggestions.list(for: category)
+        // Saved suggestions first, then any preselected names not already listed.
+        var options = suggestions.list(for: category)
+        for name in preselected where !options.contains(where: { $0.caseInsensitiveCompare(name) == .orderedSame }) {
+            options.append(name)
+        }
         let width: CGFloat = 320
 
         let stack = NSStackView()
@@ -292,7 +328,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         var checks: [NSButton] = []
         for opt in options {
             let cb = NSButton(checkboxWithTitle: opt, target: nil, action: nil)
-            cb.state = .off
+            cb.state = preselected.contains(where: { $0.caseInsensitiveCompare(opt) == .orderedSame })
+                ? .on : .off
             checks.append(cb)
             stack.addArrangedSubview(cb)
         }
@@ -310,6 +347,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         stack.addArrangedSubview(noteLabel)
 
         let noteField = NSTextField()
+        noteField.stringValue = initialNote
         noteField.placeholderString = "optional extra detail…"
         noteField.translatesAutoresizingMaskIntoConstraints = false
         stack.addArrangedSubview(noteField)

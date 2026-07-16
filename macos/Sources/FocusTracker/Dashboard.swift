@@ -986,15 +986,15 @@ private struct FocusTimerView: View {
 
                     Divider()
 
+                    // Editable while the timer runs so details can be filled in
+                    // during the session and saved automatically when it finishes.
                     SessionNameSelector(selection: $timer.sessionNames,
                                         names: sessionNamesByCategory[timer.category] ?? [])
-                        .disabled(timer.isActive)
 
                     Divider()
 
                     TextField("Optional note", text: $timer.note, axis: .vertical)
                         .lineLimit(2...4)
-                        .disabled(timer.isActive)
                 }
                 .padding(.trailing, 8)
             }
