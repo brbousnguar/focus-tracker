@@ -111,6 +111,11 @@ final class SessionStore {
     private var outbox: [SessionRecord]
     private var supportsSessionNames: Bool?
 
+    /// Called on the main thread once a record is durably stored (locally, or
+    /// confirmed by the remote after its async POST). Lets the UI refresh only
+    /// after the data is actually available, avoiding a stale reload race.
+    var onSaved: (() -> Void)?
+
     init() {
         outbox = SessionStore.loadOutbox()
     }
@@ -119,6 +124,7 @@ final class SessionStore {
         appendLog(rec)
         if config.storageBackend == .local {
             _ = SessionStore.insertLocal(rec, device: config.device)
+            DispatchQueue.main.async { [weak self] in self?.onSaved?() }
             return
         }
         outbox.append(rec)
@@ -139,6 +145,7 @@ final class SessionStore {
                 DispatchQueue.main.async {
                     self.outbox.removeAll { $0.start == rec.start && $0.category == rec.category }
                     self.persistOutbox()
+                    self.onSaved?()
                 }
             }
         }

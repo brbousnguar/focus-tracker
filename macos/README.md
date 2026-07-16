@@ -20,7 +20,14 @@ swift build -c release
 .build/release/FocusTracker      # or: swift run
 ```
 A FocusTracker window opens and a compact transparent white version of the app's
-segmented-ring icon appears in the menu bar. Its foreground stays white so translucent
+segmented-ring icon appears in the menu bar. Running the bare `.build` binary
+shows a generic executable icon in the Dock; for the real app icon during local
+use, build and open a lightweight bundle instead:
+
+```sh
+./scripts/dev-app.sh                       # from the repo root
+open macos/dist/FocusTracker.app
+``` Its foreground stays white so translucent
 menu bars cannot incorrectly tint it black, and it has no crosshair lines.
 
 ## Test
@@ -163,10 +170,12 @@ gear settings sheet used by the main window.
 Use **Refresh categories** after a change made outside the app. When the database
 is empty, choose **Add category with session…** to open Sessions and create the
 first dashboard row.
-At 0:00
-(or **Stop & Save now**) it beeps, shows past session names for that category as
-checkboxes (choose one or many, or add new ones), and provides a separate optional
-Note field before filing the session.
+While the timer runs, use **Add/Edit sessions & note…** to choose past session
+names and write a note during the session; whatever you enter is filed
+automatically when the timer ends. At 0:00 a 10-second alarm chime plays. If no
+details were entered during the session, the past-session-name checkboxes and
+optional Note field appear so you can fill them in before filing (choosing one or
+many, or adding new ones). **Stop & Save now** ends and saves early.
 **Cancel (discard)** throws the session away.
 
 ## Dashboard

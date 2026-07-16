@@ -18,9 +18,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var databaseCategories: [String] = []
     private var categoriesLoading = true
     private var categoriesLoadFailed = false
+    private var alarmSound: NSSound?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         installApplicationIcon()
+        store.onSaved = { [weak self] in
+            self?.dashboardNavigation.reloadToken = UUID()
+            self?.reloadDatabaseCategories()
+        }
         configureFocusTimer()
         installMainMenu()
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -245,6 +250,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         focusTimer.finishNow()
     }
 
+    /// Plays a repeating alarm chime for the given duration when a timer reaches
+    /// zero, then stops it. The looping system sound reads as an alarm without
+    /// bundling any audio asset.
+    private func playAlarm(seconds: TimeInterval) {
+        alarmSound?.stop()
+        guard let sound = NSSound(named: NSSound.Name("Funk")) ?? NSSound(named: NSSound.Name("Glass")) else {
+            NSSound.beep()
+            return
+        }
+        sound.loops = true
+        alarmSound = sound
+        sound.play()
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { [weak self] in
+            self?.alarmSound?.stop()
+            self?.alarmSound = nil
+        }
+    }
+
     @objc private func cancelSession() {
         focusTimer.cancel()
     }
@@ -271,7 +294,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func saveTimerCompletion(_ completion: FocusTimerCompletion) {
         guard !completion.category.isEmpty else { return }
-        if completion.reachedZero { NSSound.beep() }
+        if completion.reachedZero { playAlarm(seconds: 10) }
 
         var sessionNames = completion.sessionNames
         var note = completion.note
